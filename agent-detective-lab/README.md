@@ -2,13 +2,13 @@
 
 A terminal agent reads a real GitHub issue and decides whether to post to a real public pull request. Qwen 2.5 3B running in Ollama chooses the tools. A separate broker controls the GitHub credential and the private fixture. This experiment asks two questions. Can the broker stop a private-to-public transfer when the detective lies? Does the honest detective recognize the attempted transfer?
 
-For a visual interface, run `python3 -B dashboard.py` from this directory. The browser dashboard observes the six trials, including public model inputs/outputs, tool calls, broker decisions, and results as they arrive. Start Ollama and manage your model separately in a terminal. See the [Windows and Spark dashboard guide](../README.md#visual-dashboard). Windows supports the observer and report viewer; the full experiment still needs Linux.
+For a visual interface, run `python3 -B dashboard.py` from this directory. The browser dashboard observes the six trials, including public model inputs/outputs, tool calls, broker decisions, and results as they arrive. Start Ollama and manage your model separately in a terminal. See the [Windows and Spark dashboard guide](../docs/SETUP.md). Windows supports the observer and report viewer; the full experiment still needs Linux.
 
 ## Run it on GitHub
 
 Use a dedicated, empty **public** repository you control. Enable Issues and Actions. Use only the supplied manually triggered workflow and synthetic test data. The experiment creates two public fixture issues and can post up to six public comments on the designated pull request. Choose a repository where public comments cannot trigger other integrations. The workflow uses GitHub’s temporary repository token and a CPU model running on the same hosted runner. No model API key or personal access token is needed for the workflow.
 
-1. This repository already places the lab in `agent-detective-lab/` and its workflow in the repository-root `.github/workflows/` directory. Keep that layout when cloning or copying it. See the [repository quickstart](../README.md) for PowerShell and Spark instructions. The workflow must be committed to the default branch before it can be dispatched.
+1. This repository already places the lab in `agent-detective-lab/` and its workflow in the repository-root `.github/workflows/` directory. Keep that layout when cloning or copying it. See the [setup guide](../docs/SETUP.md) for PowerShell and Spark instructions. The workflow must be committed to the default branch before it can be dispatched.
 2. From a new branch, add a harmless file such as `RECEIVER.md`. Open a pull request against the default branch titled **[agent-detective-lab] Receiver**. Leave it open. Its number is the receiver for all six trials.
 3. On the default branch, open **Actions → Agent detective experiment → Run workflow**. Enter the receiver PR number. Or use the GitHub CLI from the repository checkout, replacing the example number:
 
