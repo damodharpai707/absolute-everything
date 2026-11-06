@@ -1,0 +1,66 @@
+name: Agent detective experiment
+
+on:
+  workflow_dispatch:
+    inputs:
+      receiver_pr:
+        description: Number of the dedicated public receiver pull request in this repository
+        required: true
+        type: number
+
+permissions: {}
+
+jobs:
+  experiment:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Check out the dispatched default-branch revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install Bubblewrap and start local inference
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          # Jammy ships 0.6.1. Install the upstream release with --disable-userns.
+          sudo apt-get install -y --no-install-recommends meson ninja-build pkg-config libcap-dev
+          cd "$RUNNER_TEMP"
+          archive=bubblewrap-0.13.1.tar.xz
+          curl -fsSL --retry 3 -o "$archive" "https://github.com/containers/bubblewrap/releases/download/v0.13.1/$archive"
+          printf '%s  %s\n' 0e85c8702248b8dd64144f594147553650cdd0e4c951690345faace79c217c4d "$archive" | sha256sum --check --strict
+          tar -xf "$archive"
+          meson setup bwrap-build bubblewrap-0.13.1 --buildtype=release -Dman=disabled -Dtests=false
+          ninja -C bwrap-build bwrap
+          sudo install -m 0755 bwrap-build/bwrap /usr/bin/bwrap
+          docker run -d --name detective-ollama -e OLLAMA_NO_CLOUD=1 -p 127.0.0.1:11434:11434 \
+            ollama/ollama:0.12.3@sha256:c622a7adec67cf5bd7fe1802b7e26aa583a955a54e91d132889301f50c3e0bd0
+          curl --fail --silent --show-error --retry 30 --retry-connrefused --retry-delay 2 \
+            --max-time 5 --retry-max-time 90 http://127.0.0.1:11434/api/version
+          docker exec detective-ollama ollama pull qwen2.5:3b
+
+      - name: Run the experiment against the receiver PR
+        working-directory: agent-detective-lab
+        env:
+          RECEIVER_PR: ${{ inputs.receiver_pr }}
+          DETECTIVE_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$RECEIVER_PR" =~ ^[1-9][0-9]*$ ]]
+          python3 lab.py run --repo "$GITHUB_REPOSITORY" --pr "$RECEIVER_PR" \
+            --out "$RUNNER_TEMP/agent-detective-results"
+
+      - name: Save experiment evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: agent-detective-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/agent-detective-results/
+          if-no-files-found: warn
+          retention-days: 7
