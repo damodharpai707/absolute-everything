@@ -9,12 +9,14 @@ import os
 from pathlib import Path
 import re
 import secrets
-import shutil
 import subprocess
 import sys
 import threading
 import time
 import webbrowser
+from urllib.parse import parse_qs, urlsplit
+
+from model_api import endpoint, request as model_request
 
 HERE = Path(__file__).resolve().parent
 ASSETS = HERE / "web"
@@ -23,29 +25,18 @@ REPO = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9_.-]{1,100}\Z")
 BATCH = re.compile(r"[a-f0-9]{12}\Z")
 
 
-def ollama_request(path, payload=None, timeout=4):
-    connection = http.client.HTTPConnection("127.0.0.1", 11434, timeout=timeout)
-    try:
-        body = None if payload is None else json.dumps(payload).encode()
-        connection.request("GET" if body is None else "POST", path, body,
-                           {"Content-Type": "application/json"})
-        response = connection.getresponse()
-        data = response.read(1_000_001)
-        if response.status != 200 or len(data) > 1_000_000:
-            raise RuntimeError("Ollama could not complete the request. Check its service logs.")
-        return json.loads(data)
-    finally:
-        connection.close()
+def ollama_request(path, payload=None, timeout=4, base_url=None):
+    return model_request(path, payload, timeout=timeout, base_url=base_url)
 
 
 class Dashboard:
-    def __init__(self, results=None):
+    def __init__(self, results=None, ollama_url=None):
         self.results = Path(results) if results else HERE / "results"
         self.token = secrets.token_urlsafe(32)
         self.lock = threading.RLock()
         self.job = None
         self.process = None
-        self.model_process = None
+        self.ollama_url = endpoint(ollama_url)
         self.closed = False
 
     def snapshot(self):
@@ -59,17 +50,17 @@ class Dashboard:
     def health(self):
         data = {"linux": sys.platform == "linux", "python": sys.version.split()[0],
                 "ollama": False, "model": False, "version": None,
-                "ollama_cli": shutil.which("ollama") is not None,
+                "endpoint": self.ollama_url,
                 "bubblewrap": Path("/usr/bin/bwrap").is_file(),
                 "credential": bool(os.environ.get("DETECTIVE_GITHUB_TOKEN")),
-                "model_name": MODEL, "message": "Ollama is not reachable on this computer."}
+                "model_name": MODEL, "message": "Ollama is not reachable at the configured port."}
         try:
-            tags = ollama_request("/api/tags")
+            tags = ollama_request("/api/tags", base_url=self.ollama_url)
             data["model"] = any(m.get("name") == MODEL for m in tags.get("models", []))
             data["ollama"] = True
-            data["message"] = "Connected to Ollama on this computer."
+            data["message"] = "Connected to the configured Ollama endpoint."
             try:
-                data["version"] = ollama_request("/api/version").get("version")
+                data["version"] = ollama_request("/api/version", base_url=self.ollama_url).get("version")
             except (OSError, ValueError, RuntimeError, http.client.HTTPException):
                 pass
         except (OSError, ValueError, AttributeError, TypeError, RuntimeError, http.client.HTTPException):
@@ -106,10 +97,37 @@ class Dashboard:
             raise ValueError("Invalid experiment report")
         return data
 
+    def read_trace(self, batch, after=0):
+        if not BATCH.fullmatch(batch) or after < 0:
+            raise ValueError("Invalid trace request")
+        path = self.results / batch / "trace.jsonl"
+        if path.is_symlink() or not path.resolve().is_relative_to(self.results.resolve()):
+            raise ValueError("Invalid trace path")
+        if not path.exists():
+            return {"events": [], "cursor": after, "available": False}
+        if path.stat().st_size > 32_000_000:
+            raise ValueError("Trace is too large")
+        events = []
+        with path.open(encoding="utf-8") as file:
+            for raw in file:
+                if not raw.endswith("\n"):
+                    break  # A producer may still be writing its final line.
+                if len(raw) > 64000:
+                    continue
+                try:
+                    event = json.loads(raw)
+                except ValueError:
+                    continue
+                if isinstance(event, dict) and type(event.get("seq")) is int and event["seq"] > after:
+                    events.append(event)
+                    if len(events) == 200:
+                        break
+        return {"events": events, "cursor": events[-1]["seq"] if events else after, "available": True}
+
     def start(self, action, data):
-        if action not in {"start-model", "pull-model", "probe", "tests", "sandbox", "experiment"}:
+        if action != "experiment":
             raise ValueError("Unknown action")
-        if action in {"tests", "sandbox", "experiment"} and sys.platform != "linux":
+        if sys.platform != "linux":
             raise ValueError("This action needs Linux. Open the dashboard on Spark, or use GitHub Actions.")
         # Credentials stay in the request/worker closure, never in job state or files.
         token = None
@@ -139,6 +157,7 @@ class Dashboard:
     def command(self, argv, token=None, timeout=6600):
         environment = os.environ.copy()
         environment.pop("DETECTIVE_GITHUB_TOKEN", None)
+        environment["DETECTIVE_OLLAMA_URL"] = self.ollama_url
         if token:
             environment["DETECTIVE_GITHUB_TOKEN"] = token
         with self.lock:
@@ -178,51 +197,7 @@ class Dashboard:
     def _run(self, action, args, token):
         code = 0
         try:
-            if action == "start-model":
-                if self.health()["ollama"]:
-                    self.note("Ollama is already running.\n")
-                else:
-                    cli = shutil.which("ollama")
-                    if not cli:
-                        raise RuntimeError("Install Ollama first, then click Start Ollama again.")
-                    environment = os.environ.copy()
-                    environment.pop("DETECTIVE_GITHUB_TOKEN", None)
-                    environment.update(OLLAMA_NO_CLOUD="1", OLLAMA_HOST="127.0.0.1:11434")
-                    with self.lock:
-                        if self.closed:
-                            raise RuntimeError("Dashboard closed")
-                        if self.model_process and self.model_process.poll() is None:
-                            raise RuntimeError("Ollama is still starting. Wait a moment and check connection.")
-                        self.model_process = subprocess.Popen([cli, "serve"], env=environment,
-                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    for _ in range(30):
-                        if self.health()["ollama"]:
-                            self.note("Ollama is ready. Download the model next.\n")
-                            break
-                        if self.model_process.poll() is not None:
-                            raise RuntimeError("Ollama could not start. Run 'ollama serve' in a terminal to see its diagnostic output.")
-                        time.sleep(1)
-                    else:
-                        raise RuntimeError("Ollama did not become ready. Check its service logs.")
-            elif action == "pull-model":
-                self.note("Downloading qwen2.5:3b. This may take several minutes.\n")
-                ollama_request("/api/pull", {"model": MODEL, "stream": False}, timeout=3600)
-                self.note("Model download finished.\n")
-            elif action == "probe":
-                self.note("Asking qwen2.5:3b for a short greeting…\n")
-                reply = ollama_request("/api/chat", {"model": MODEL, "stream": False,
-                    "messages": [{"role": "user", "content": "In one short sentence, greet someone opening an AI safety experiment lab."}],
-                    "options": {"num_predict": 80, "temperature": 0}}, timeout=180)
-                content = reply.get("message", {}).get("content")
-                if not isinstance(content, str) or not content.strip():
-                    raise RuntimeError("Ollama returned no text. Check that the model is working.")
-                self.note(content.strip() + "\n")
-            elif action == "tests":
-                code = self.command([sys.executable, "-B", "-m", "unittest", "discover", "-v"], timeout=120)
-            elif action == "sandbox":
-                code = self.command([sys.executable, "-B", "-c",
-                    'from isolation import selfcheck; selfcheck(); print("Sandbox ready: isolated filesystem and network.")'], timeout=30)
-            elif action == "experiment":
+            if action == "experiment":
                 self.note("Starting six trials. Follow progress below; public writes begin after preflight checks.\n")
                 code = self.command([sys.executable, "-B", "-u", str(HERE / "lab.py"), "run",
                     "--repo", args["repo"], "--pr", str(args["pr"]), "--out", str(self.results)], token)
@@ -242,7 +217,7 @@ class Dashboard:
     def close(self):
         with self.lock:
             self.closed = True
-            for proc in (self.process, self.model_process):
+            for proc in (self.process,):
                 if proc is not None and proc.poll() is None:
                     proc.terminate()
                     try:
@@ -309,6 +284,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(self.server.app.health())
             if self.path == "/api/state":
                 return self.respond({"job": self.server.app.snapshot(), "reports": self.server.app.reports()})
+            if self.path.startswith("/api/traces/"):
+                parsed = urlsplit(self.path)
+                after = int(parse_qs(parsed.query).get("after", ["0"])[0])
+                return self.respond(self.server.app.read_trace(parsed.path.removeprefix("/api/traces/"), after))
             if self.path.startswith("/api/reports/"):
                 return self.respond(self.server.app.read_report(self.path.removeprefix("/api/reports/")))
         except (OSError, ValueError):
@@ -340,11 +319,13 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--ollama-url", type=endpoint, help="Ollama loopback endpoint, including a forwarded laptop port")
+    parser.add_argument("--results", type=Path, help="Watch a custom experiment results directory")
     parser.add_argument("--no-browser", action="store_true", help="Use when connecting to Spark over SSH")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("Port must be between 1 and 65535")
-    app = Dashboard()
+    app = Dashboard(results=args.results, ollama_url=args.ollama_url)
     try:
         server = Server(("127.0.0.1", args.port), app)
     except OSError as exc:

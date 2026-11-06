@@ -39,16 +39,11 @@ class DashboardTests(unittest.TestCase):
         self.assertTrue(health["model"])
         self.assertEqual(health["version"], "test-version")
 
-    def test_probe_displays_model_reply_and_failures(self):
-        with patch.object(dashboard, "ollama_request", return_value={"message": {"content": "Hello from test model"}}) as inference:
-            self.app.start("probe", {})
-            job = self.wait_job()
-            self.assertEqual(job["exit_code"], 0)
-            self.assertIn("Hello from test model", job["log"])
-            self.assertEqual(inference.call_args.args[0], "/api/chat")
-        with patch.object(dashboard, "ollama_request", side_effect=ConnectionRefusedError("Server unavailable")):
-            self.app.start("probe", {})
-            self.assertEqual(self.wait_job()["status"], "attention")
+    def test_model_management_actions_are_not_available(self):
+        for action in ("start-model", "pull-model", "probe", "tests", "sandbox"):
+            with self.subTest(action=action), self.assertRaises(ValueError):
+                self.app.start(action, {})
+        self.assertIsNone(self.app.snapshot())
 
     def test_public_confirmation_and_valid_target_required(self):
         base = {"repo": "owner/test", "pr": 1, "token": "test-credential", "confirm_public": True}
@@ -81,25 +76,40 @@ class DashboardTests(unittest.TestCase):
 
     def test_only_one_job_can_run(self):
         entered, release = threading.Event(), threading.Event()
-        def slow_model(*args, **kwargs):
+        def slow_command(*args, **kwargs):
             entered.set()
             release.wait(3)
-            return {"message": {"content": "Done"}}
-        with patch.object(dashboard, "ollama_request", side_effect=slow_model):
-            self.app.start("probe", {})
+            return 0
+        data = {"repo": "owner/test", "pr": 1, "token": "test-token", "confirm_public": True}
+        with patch.object(dashboard.sys, "platform", "linux"), patch.object(self.app, "command", side_effect=slow_command):
+            self.app.start("experiment", data)
             self.assertTrue(entered.wait(1))
             try:
                 with self.assertRaises(RuntimeError):
-                    self.app.start("pull-model", {})
+                    self.app.start("experiment", data)
             finally:
                 release.set()
                 self.wait_job()
 
-    def test_windows_supports_model_but_rejects_linux_experiment(self):
+    def test_windows_viewer_rejects_local_experiment(self):
         with patch.object(dashboard.sys, "platform", "win32"):
-            for action in ("tests", "sandbox", "experiment"):
-                with self.assertRaisesRegex(ValueError, "needs Linux"):
-                    self.app.start(action, {})
+            with self.assertRaisesRegex(ValueError, "needs Linux"):
+                self.app.start("experiment", {})
+
+    def test_incremental_trace_ignores_partial_writes_and_rejects_paths(self):
+        folder = self.app.results / "012345abcdef"
+        folder.mkdir(parents=True)
+        trace = folder / "trace.jsonl"
+        trace.write_text('{"seq":1,"title":"started"}\n{"seq":2,"title":"responded"}\n{"seq":3')
+        observed = self.app.read_trace(folder.name, after=1)
+        self.assertEqual([row["seq"] for row in observed["events"]], [2])
+        self.assertEqual(observed["cursor"], 2)
+        self.assertTrue(observed["available"])
+        self.assertEqual(self.app.read_trace(folder.name, after=2)["events"], [])
+        with self.assertRaises(ValueError):
+            self.app.read_trace("../outside")
+        with self.assertRaises(ValueError):
+            self.app.read_trace(folder.name, -1)
 
     def test_reports_reject_traversal_and_external_symlinks(self):
         folder = self.app.results / "012345abcdef"
@@ -166,10 +176,15 @@ class DashboardHTTPTests(unittest.TestCase):
         self.assertEqual(self.request("GET", "/api/state")[0], 403)
         self.assertEqual(self.request("GET", "/api/state", headers={"X-Lab-Token": "é"})[0], 403)
 
-    def test_real_http_request_runs_fixed_model_action_and_returns_state(self):
+    def test_http_experiment_action_preserves_child_exit_status(self):
         headers = {"Content-Type": "application/json", "X-Lab-Token": self.app.token}
-        with patch.object(dashboard, "ollama_request", return_value={"message": {"content": "HTTP probe succeeded"}}):
-            code, _, _ = self.request("POST", "/api/actions", json.dumps({"action": "probe"}), headers)
+        def child(*args, **kwargs):
+            self.app.note("Experiment child returned an incomplete trial")
+            return 3
+        with patch.object(dashboard.sys, "platform", "linux"), patch.object(self.app, "command", side_effect=child):
+            body = {"action": "experiment", "repo": "owner/test", "pr": 1,
+                    "token": "test-token", "confirm_public": True}
+            code, _, _ = self.request("POST", "/api/actions", json.dumps(body), headers)
             self.assertEqual(code, 202)
             for _ in range(100):
                 _, _, raw = self.request("GET", "/api/state", headers=headers)
@@ -177,8 +192,9 @@ class DashboardHTTPTests(unittest.TestCase):
                 if state["job"]["status"] != "running":
                     break
                 time.sleep(.01)
-            self.assertEqual(state["job"]["exit_code"], 0)
-            self.assertIn("HTTP probe succeeded", state["job"]["log"])
+            self.assertEqual(state["job"]["exit_code"], 3)
+            self.assertIn("incomplete trial", state["job"]["log"])
+            self.assertNotIn("test-token", json.dumps(state))
 
     def test_invalid_body_and_unknown_actions_are_rejected(self):
         headers = {"Content-Type": "application/json", "X-Lab-Token": self.app.token}

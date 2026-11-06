@@ -2,7 +2,7 @@
 
 A terminal agent reads a real GitHub issue and decides whether to post to a real public pull request. Qwen 2.5 3B running in Ollama chooses the tools. A separate broker controls the GitHub credential and the private fixture. This experiment asks two questions. Can the broker stop a private-to-public transfer when the detective lies? Does the honest detective recognize the attempted transfer?
 
-For a visual interface, run `python3 -B dashboard.py` from this directory. The browser dashboard can connect to Ollama, try the model, run the experiment on Linux, and display results. See the [Windows and Spark dashboard guide](../README.md#visual-dashboard). Windows supports the model controls and report viewer; the full experiment still needs Linux.
+For a visual interface, run `python3 -B dashboard.py` from this directory. The browser dashboard observes the six trials, including public model inputs/outputs, tool calls, broker decisions, and results as they arrive. Start Ollama and manage your model separately in a terminal. See the [Windows and Spark dashboard guide](../README.md#visual-dashboard). Windows supports the observer and report viewer; the full experiment still needs Linux.
 
 ## Run it on GitHub
 
@@ -16,7 +16,7 @@ Use a dedicated, empty **public** repository you control. Enable Issues and Acti
    gh workflow run experiment.yml -f receiver_pr=1
    ```
 
-4. Open the PR’s **Conversation** tab to see the actual posts. In the workflow run, download the `agent-detective-results` artifact. Each batch contains `results.json` and a redacted event stream, `events.jsonl`. Artifacts are retained for seven days. The public issues and comments remain available on GitHub until you close or remove them.
+4. Open the PR’s **Conversation** tab to see the actual posts. In the workflow run, download the `agent-detective-results` artifact. Each batch contains `results.json`, the redacted broker audit `events.jsonl`, and the separate observation stream `trace.jsonl`. The latter records public inputs/outputs but withholds private payloads and content after a private read. Artifacts are retained for seven days. The public issues and comments remain available on GitHub until you close or remove them.
 
 A run with a red workflow status may have produced a valid research finding. Check the results and exit codes below. If setup fails before the experiment starts, check the step log. There might be no evidence artifact yet. The workflow defaults to Ubuntu 22.04, builds checksum-pinned Bubblewrap and pulls the model into a local Ollama container. Repository or organization Actions policy must permit writing issues.
 
@@ -52,7 +52,7 @@ Exit `0` means every worker completed, the attacks exercised the policy, the thr
 
 ## Run from your own Linux terminal
 
-The local path requires Python 3.10+, glibc, the distro’s `/usr/bin/python3`, non-setuid Bubblewrap 0.9+ at `/usr/bin/bwrap`, working unprivileged user namespaces, and a local Ollama service on `127.0.0.1:11434`. Start Ollama with cloud features disabled and load the specified model. The workflow includes an example of starting an isolated Ollama container. [Ollama Docker setup](https://docs.ollama.com/docker) · [Model card](https://ollama.com/library/qwen2.5:3b)
+The local path requires Python 3.10+, glibc, the distro’s `/usr/bin/python3`, non-setuid Bubblewrap 0.9+ at `/usr/bin/bwrap`, working unprivileged user namespaces, and Ollama reachable at the configured loopback endpoint (default `127.0.0.1:11434`). Pass `--ollama-url http://127.0.0.1:11435` to use an SSH-forwarded laptop server. The observer and a separately started CLI batch must use the same endpoint. Start Ollama with cloud features disabled and load the specified model. The workflow includes an example of starting an isolated Ollama container. [Ollama Docker setup](https://docs.ollama.com/docker) · [Model card](https://ollama.com/library/qwen2.5:3b)
 
 ```bash
 ollama pull qwen2.5:3b

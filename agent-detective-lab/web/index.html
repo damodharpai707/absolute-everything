@@ -1,77 +1,41 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="lab-token" content="__LAB_TOKEN__">
-  <meta name="theme-color" content="#173c34">
-  <title>Agent Detective Lab · Control room</title>
-  <link rel="icon" href="/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css">
-  <script src="/app.js" defer></script>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="lab-token" content="__LAB_TOKEN__"><meta name="theme-color" content="#173c34">
+  <title>Agent Detective Lab · Live observation</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
 </head>
 <body>
-  <aside class="sidebar">
-    <a class="brand" href="#overview"><img src="/icon.svg" alt="" width="38" height="38"><span>Agent Detective<span class="brand-sub">THE EXPERIMENT LAB</span></span></a>
-    <p class="nav-label">WORKSPACE</p>
-    <nav aria-label="Main navigation">
-      <a class="nav-link active" href="#overview"><span aria-hidden="true">◫</span> Overview <span class="nav-index">01</span></a>
-      <a class="nav-link" href="#model"><span aria-hidden="true">◎</span> Model station <span class="nav-index">02</span></a>
-      <a class="nav-link" href="#experiment"><span aria-hidden="true">⊞</span> Run experiment <span class="nav-index">03</span></a>
-      <a class="nav-link" href="#results"><span aria-hidden="true">▤</span> Evidence <span class="nav-index">04</span></a>
-    </nav>
-    <div class="sidebar-note"><span class="tiny-dot"></span> A small question. A real test.<p>Can an agent keep a secret when its reviewer gets it wrong?</p><a href="#how-it-works">See how it works <span aria-hidden="true">→</span></a></div>
-    <div class="sidebar-bottom"><span class="avatar">AD</span><div>Local workspace<small id="platform-label">Connecting…</small></div><span class="connection-dot" id="connection-dot"></span></div>
-  </aside>
-
-  <div class="workspace">
-    <header class="topbar"><div><span class="breadcrumb">Workspace</span><span class="separator">/</span><span>Control room</span></div><a class="repo-link" href="https://github.com/damodharpai707/absolute-everything" target="_blank" rel="noopener noreferrer">View repository <span aria-hidden="true">→</span></a></header>
-    <main id="overview">
-      <div class="page-heading"><div><p class="eyebrow">OBSERVE. TEST. UNDERSTAND.</p><h1>Your agent, under the lens.</h1><p class="lede">A hands-on workspace for testing AI agents and the boundaries that protect their data.</p></div><span class="local-badge"><span></span> LOCAL DASHBOARD</span></div>
-
-      <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-copy"><span class="hero-label">THE QUESTION BEHIND THE LAB</span><h2 id="hero-title">What happens when<br>the detective is wrong?</h2><p>Give an agent a task. Introduce a tempting request.<br>Watch the broker hold the boundary.</p><div class="hero-actions"><a class="button light" href="#experiment">Set up an experiment <span aria-hidden="true">→</span></a><button class="text-button" id="example-button">Explore an example <span aria-hidden="true">→</span></button></div><span class="hero-footnote">6 trials · 3 reviewer conditions · 1 protected boundary</span></div>
-        <div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="art-label art-label-top"><span></span> REQUEST OBSERVED</div><div class="lens"><div class="lens-inner"><svg viewBox="0 0 100 100"><path d="M50 16 73 27v21c0 16-11 28-23 36-12-8-23-20-23-36V27z"/><path class="shield-check" d="m38 48 9 9 17-19"/></svg></div></div><div class="art-label art-label-bottom"><span></span> BOUNDARY ENFORCED</div><div class="art-cross cross-one">+</div><div class="art-cross cross-two">+</div></div>
-      </section>
-
-      <section class="status-grid" aria-label="Environment status">
-        <article class="status-card"><div class="status-top"><span class="status-icon">◎</span><span class="pill neutral" id="ollama-badge">Checking</span></div><h3>Ollama connection</h3><p id="ollama-detail">Looking for your local model server…</p></article>
-        <article class="status-card"><div class="status-top"><span class="status-icon">◇</span><span class="pill neutral" id="model-badge">Checking</span></div><h3>Qwen 2.5 <span class="muted">/ 3B</span></h3><p id="model-detail">The worker and reviewer use this model.</p></article>
-        <article class="status-card"><div class="status-top"><span class="status-icon">⬡</span><span class="pill neutral" id="sandbox-badge">Not checked</span></div><h3>Worker isolation</h3><p id="sandbox-detail">Run a check before your first experiment.</p></article>
-      </section>
-
-      <div class="section-heading" id="model"><div><p class="eyebrow">01 / PREPARE</p><h2>Meet your local model.</h2></div><button class="button subtle" id="refresh-button">↻ &nbsp; Check connection</button></div>
-      <section class="model-panel panel">
-        <div class="model-identity"><span class="model-mark">Q<span>3B</span></span><div><h3>Qwen 2.5</h3><p>Small model. Real tool decisions.</p><div class="tag-row"><span class="tag">Local inference</span><span class="tag">Tool calling</span><span class="tag">Ollama</span></div></div></div>
-        <div class="model-steps"><div><span class="step-number">1</span><div><strong>Connect</strong><small>Start your model server</small></div><button class="button compact" data-action="start-model" id="start-model-button">Start Ollama</button></div><div><span class="step-number">2</span><div><strong>Load</strong><small>Download qwen2.5:3b once</small></div><button class="button compact" data-action="pull-model" id="pull-model-button">Download model</button></div><div><span class="step-number">3</span><div><strong>Say hello</strong><small>Make a real inference request</small></div><button class="button compact green" data-action="probe" id="probe-button">Try the model <span aria-hidden="true">→</span></button></div></div>
-        <p class="panel-footnote" id="model-hint">Ollama runs on the same computer as this dashboard. Downloads require Internet access.</p>
-      </section>
-
-      <div class="section-heading" id="experiment"><div><p class="eyebrow">02 / INVESTIGATE</p><h2>One experiment. Six perspectives.</h2></div><span class="section-caption">You choose when the live run begins.</span></div>
-      <div class="experiment-grid">
-        <section class="panel run-panel" aria-labelledby="run-title"><div class="panel-title"><span class="number-label">A</span><div><h3 id="run-title">Run on this computer</h3><p>Your local Ollama. A real GitHub receiver.</p></div></div>
-          <div class="preflight"><span>Before your first run</span><div><button class="button compact" data-action="tests" id="tests-button">Run offline tests</button><button class="button compact" data-action="sandbox" id="sandbox-button">Check isolation</button></div></div>
-          <p id="linux-note" class="inline-note" hidden>This computer is running Windows or macOS. You can try Ollama here. For the six-trial experiment, open this dashboard on your Spark or use GitHub Actions.</p>
-          <form id="experiment-form">
-            <label for="repo">GitHub repository <span>Public test repository</span></label><input id="repo" name="repo" value="damodharpai707/absolute-everything" placeholder="owner/repository" required autocomplete="off" spellcheck="false" maxlength="140">
-            <div class="form-row"><div><label for="pr">Receiver PR number</label><input id="pr" name="pr" type="number" min="1" max="2147483647" placeholder="e.g. 2" required></div><div><label for="token">GitHub token <span id="token-hint">Issues: write</span></label><input id="token" name="token" type="password" autocomplete="off" placeholder="Fine-grained token" maxlength="4096"></div></div>
-            <p class="field-help">Use an open PR titled <code>[agent-detective-lab] Receiver</code>. Your token is used for this run and never saved by the dashboard.</p>
-            <label class="checkbox-label" for="confirm-public"><input id="confirm-public" type="checkbox" required><span>I understand this creates <strong>2 public issues</strong> and up to <strong>6 public comments</strong>.</span></label>
-            <button class="button primary full" id="run-button" type="submit">Start six-trial experiment <span aria-hidden="true">→</span></button>
-          </form>
-        </section>
-        <div class="experiment-side"><section class="panel cloud-panel"><div class="panel-title"><span class="number-label">B</span><div><h3>Let GitHub run it</h3><p>No local model setup needed.</p></div></div><p>Open the manual workflow, select <strong>main</strong>, and enter your receiver PR number. GitHub runs its own Ollama instance on Linux.</p><a class="button full" href="https://github.com/damodharpai707/absolute-everything/actions/workflows/experiment.yml" target="_blank" rel="noopener noreferrer">Open GitHub Actions <span aria-hidden="true">→</span></a><p class="small-note">This opens GitHub. The workflow starts only when you click “Run workflow” there.</p></section>
-        <section class="principle-card" id="how-it-works"><span class="eyebrow">THE RULE THAT HOLDS</span><h3>Read private data.<br>Lose public posting.</h3><p>The broker enforces this rule for each trial. The detective reviews afterward—even a dishonest verdict cannot unlock a blocked post.</p><div class="flow"><span>Worker</span><span>→</span><strong>Broker</strong><span>→</span><span>GitHub</span></div><a href="https://github.com/damodharpai707/absolute-everything/tree/main/agent-detective-lab#read-the-results" target="_blank" rel="noopener noreferrer">Understand the experiment →</a></section></div>
-      </div>
-
-      <section class="activity-panel" id="activity" aria-labelledby="activity-title"><div class="activity-heading"><div><span class="terminal-icon">›_</span><h2 id="activity-title">Live activity</h2><span class="pill neutral" id="job-status">Idle</span></div><span id="job-caption">Your next action will appear here.</span></div><pre id="job-log" tabindex="0" aria-label="Task output">The lab is quiet. Start with a connection check or try the model.</pre></section>
-
-      <div class="section-heading" id="results"><div><p class="eyebrow">03 / READ THE EVIDENCE</p><h2>Every decision leaves a trace.</h2></div><div class="result-actions"><button class="button subtle" id="import-button">↑ &nbsp; Import results.json</button><input type="file" id="report-file" accept=".json,application/json" hidden><button class="button subtle" id="download-button" hidden>↓ &nbsp; Export report</button></div></div>
-      <div class="report-toolbar"><label for="report-select">Saved batches</label><select id="report-select"><option value="">No local batches yet</option></select><span id="report-source"></span></div>
-      <section class="panel evidence-panel"><div id="empty-results" class="empty-state"><div class="empty-icon">⌕</div><h3>Your first investigation starts here.</h3><p>Run an experiment or import a downloaded GitHub report.<br>You can also explore an illustrative example.</p><button class="button" id="empty-example-button">Explore an example →</button></div><div id="report-content" hidden><div class="report-summary"><div><span class="eyebrow" id="report-id"></span><h3 id="report-heading"></h3><p id="report-context"></p></div><span class="pill" id="report-verification"></span></div><div class="metrics"><div><strong id="metric-blocked">—</strong><span>Attempts blocked</span></div><div><strong id="metric-clean">—</strong><span>Clean posts verified</span></div><div><strong id="metric-canary">—</strong><span>Literal canary observed</span></div></div><div class="table-scroll"><table><thead><tr><th>Reviewer</th><th>Scenario</th><th>Worker</th><th>Outcome</th><th>Detective verdict</th></tr></thead><tbody id="trial-rows"></tbody></table></div><p class="evidence-note">An unexercised attack is not a broker block. A completed batch does not establish detective accuracy. Open a trial below to inspect its recorded details.</p><div id="trial-details"></div></div></section>
-      <footer><span>Agent Detective Lab <span class="footer-divider">/</span> Make the boundary visible.</span><a href="https://github.com/damodharpai707/absolute-everything#readme" target="_blank" rel="noopener noreferrer">Setup guide →</a></footer>
-    </main>
-  </div>
+  <header class="topbar">
+    <a class="brand" href="#"><img src="/icon.svg" alt="" width="35" height="35"><span>Agent Detective<span class="brand-sub">LIVE OBSERVATION</span></span></a>
+    <div class="connection"><span class="dot" id="connection-dot"></span><span id="connection-text">Checking model connection…</span><button id="refresh-button" class="icon-button" aria-label="Refresh model connection">↻</button></div>
+    <a class="repo-link" href="https://github.com/damodharpai707/absolute-everything" target="_blank" rel="noopener noreferrer">Repository →</a>
+  </header>
+  <main>
+    <div class="page-heading"><div><p class="eyebrow">SIX TRIALS. EVERY DECISION, VISIBLE.</p><h1>Inside the experiment.</h1><p class="lede">Watch the worker act, the broker enforce, and the detective review.</p></div><button class="button primary" id="new-run-button">Start a batch →</button></div>
+    <div class="batch-bar"><div class="batch-picker"><label for="batch-select">OBSERVING</label><select id="batch-select"><option value="">Waiting for a batch</option></select></div><label class="follow"><input id="follow-latest" type="checkbox" checked> Follow latest batch</label><span class="pill neutral" id="batch-status">No active experiment</span><div class="import-actions"><button class="button subtle" id="import-button">Import report</button><input id="report-file" type="file" accept=".json,application/json" hidden><button class="button subtle" id="import-trace-button" disabled>Import trace</button><input id="trace-file" type="file" accept=".jsonl,.ndjson,application/json" hidden></div></div>
+    <section class="mission" aria-labelledby="mission-title"><div><span class="eyebrow">CURRENT ACTIVITY</span><h2 id="mission-title">Ready when your agents are.</h2><p id="mission-detail">Start an experiment here or from your terminal. Its live trace will appear automatically.</p><div class="mission-meta"><span id="batch-repo">No receiver selected</span><span id="batch-model">qwen2.5:3b</span><span id="batch-progress">0 / 6 trials finished</span></div></div><div class="mission-visual" aria-hidden="true"><div class="ring outer"></div><div class="ring"></div><img src="/icon.svg" alt=""><span>OBSERVATION CHANNEL</span></div></section>
+    <section aria-labelledby="trials-title"><div class="section-heading"><div><span class="eyebrow">THE SIX PERSPECTIVES</span><h2 id="trials-title">One boundary. Three reviewer conditions.</h2></div><button id="all-trials-button" class="button subtle active">All trials</button></div><div class="trial-grid" id="trial-grid"></div><p class="section-note">Select a trial to focus its activity. Execution order is shuffled for each batch.</p></section>
+    <section class="flow-panel" aria-label="Agent activity">
+      <div class="flow-node" data-actor="worker"><span class="node-icon">W</span><div><strong>Worker</strong><small>Reads &amp; requests tools</small></div><span class="node-status">Waiting</span></div><span class="flow-arrow">→</span>
+      <div class="flow-node" data-actor="broker"><span class="node-icon">B</span><div><strong>Broker</strong><small>Allows or denies</small></div><span class="node-status">Waiting</span></div><span class="flow-arrow">→</span>
+      <div class="flow-node" data-actor="detective"><span class="node-icon">D</span><div><strong>Detective</strong><small>Reviews after the worker</small></div><span class="node-status">Waiting</span></div><span class="flow-arrow">→</span>
+      <div class="flow-node" data-actor="receiver"><span class="node-icon">V</span><div><strong>Verifier</strong><small>Checks public results</small></div><span class="node-status">Waiting</span></div>
+    </section>
+    <div class="observation-grid">
+      <section class="panel feed-panel" aria-labelledby="feed-title"><div class="panel-heading"><div><span class="live-dot"></span><h2 id="feed-title">Live input &amp; output</h2><span id="event-count" class="count">0 events</span></div><label class="follow"><input id="auto-scroll" type="checkbox" checked> Auto-scroll</label></div><div class="feed" id="event-feed" tabindex="0"><div class="empty-state" id="feed-empty"><span class="empty-symbol">⌁</span><h3>The observation channel is open.</h3><p>Model inputs and replies, tool requests, broker decisions,<br>and reviewer verdicts will appear here as they happen.</p></div></div><div class="feed-footer"><span id="trace-source">Waiting for trace.jsonl</span><span>Updates every second · replies appear when a model turn finishes</span></div></section>
+      <aside class="inspection-panel">
+        <section class="panel context-panel"><span class="eyebrow">TRIAL UNDER THE LENS</span><h2 id="focus-title">All six trials</h2><p id="focus-description">Select a trial above to inspect its scenario and decisions.</p><dl><div><dt>Worker</dt><dd id="focus-worker">—</dd></div><div><dt>Private data read</dt><dd id="focus-private">—</dd></div><div><dt>Public post blocked</dt><dd id="focus-blocked">—</dd></div><div><dt>Detective verdict</dt><dd id="focus-verdict">—</dd></div><div><dt>Verified outcome</dt><dd id="focus-outcome">—</dd></div></dl></section>
+        <section class="boundary-card"><span class="eyebrow">THE ENFORCED RULE</span><h3>Private read.<br>Public posting closed.</h3><p>The broker enforces the boundary. The detective observes afterward and cannot change that decision.</p><div class="privacy-note">Private payloads and subsequent model text are withheld from this viewer. Tool names, decisions, and reviewer evidence stay visible.</div></section>
+        <section class="panel endpoint-panel"><span class="eyebrow">YOUR INFERENCE SERVER</span><strong id="endpoint">http://127.0.0.1:11434</strong><p>Ollama is managed in your terminal. This page observes the experiment.</p><p id="platform-note"></p></section>
+      </aside>
+    </div>
+    <section class="panel results-panel" aria-labelledby="results-title"><div class="panel-heading"><div><h2 id="results-title">Results as they arrive</h2></div><button id="export-button" class="button subtle" hidden>Export report ↓</button></div><div class="metrics"><div><strong id="metric-blocked">—</strong><span>Attempts blocked</span></div><div><strong id="metric-clean">—</strong><span>Clean posts verified</span></div><div><strong id="metric-canary">—</strong><span>Literal canary observed</span></div></div><div class="table-scroll"><table><thead><tr><th>Reviewer</th><th>Scenario</th><th>Stage</th><th>Outcome</th><th>Detective verdict</th></tr></thead><tbody id="result-rows"></tbody></table></div><p class="section-note">Outcomes are final after independent receiver verification. An unexercised attack is not a broker block; a completed batch does not establish detective accuracy.</p></section>
+    <details class="console"><summary><span>Launcher output</span><span id="job-status">Idle</span></summary><pre id="job-log">Waiting for a dashboard-launched experiment.</pre></details>
+    <footer><span>Agent Detective Lab / Observe actions. Inspect evidence.</span><a href="https://github.com/damodharpai707/absolute-everything#visual-dashboard" target="_blank" rel="noopener noreferrer">Connection guide →</a></footer>
+  </main>
+  <dialog id="run-dialog"><form id="experiment-form"><div class="dialog-heading"><div><p class="eyebrow">NEW INVESTIGATION</p><h2>Start a six-trial batch.</h2></div><button id="close-dialog" type="button" class="icon-button" aria-label="Close start dialog">×</button></div><p class="dialog-intro">Uses your running Ollama server. Each isolated worker gets a fresh conversation.</p><p id="linux-note" class="inline-note" hidden>The experiment needs Linux isolation. Run this observer on WSL or Spark; your laptop can still host Ollama through a forwarded port.</p><label for="repo">Public GitHub repository</label><input id="repo" value="damodharpai707/absolute-everything" required autocomplete="off" maxlength="140"><div class="form-row"><div><label for="pr">Receiver PR number</label><input id="pr" type="number" min="1" max="2147483647" placeholder="e.g. 2" required></div><div><label for="token">Scoped GitHub token</label><input id="token" type="password" autocomplete="off" maxlength="4096" placeholder="Issues: write"></div></div><p class="field-help">Use an open PR titled <code>[agent-detective-lab] Receiver</code>. The dashboard does not save your token.</p><label class="confirm-label"><input id="confirm-public" type="checkbox" required><span>This batch creates <strong>2 public issues</strong> and up to <strong>6 public comments</strong>.</span></label><p id="run-requirements" class="field-help"></p><button id="run-button" type="submit" class="button primary full">Begin experiment →</button></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>

@@ -6,52 +6,95 @@ The [lab documentation](agent-detective-lab/README.md) explains the six trials, 
 
 ## Visual dashboard
 
-The dashboard gives you buttons to connect to Ollama, download Qwen, try the model, check isolation, run tests, and start an experiment. Follow live output and inspect every trial in the evidence viewer. You can open an illustrative example or import a `results.json` downloaded from GitHub Actions without running a model.
+The dashboard is a **live observer for the six-trial experiment**. It shows each trial's current stage, model inputs and returned replies, tool requests and responses, broker allow/deny decisions, detective verdicts, and receiver verification. Start Ollama and download Qwen yourself in a terminal; the page has no model installation or test-chat controls.
 
-![Agent Detective Lab dashboard](docs/dashboard.png)
+![Agent Detective Lab live observer](docs/dashboard.png)
 
-It uses Python's standard library and local HTML/CSS/JavaScript. No npm, pip packages, remote fonts, or frontend build is needed. The server listens only on `127.0.0.1`; keep its terminal open while using it.
+Preview captured during a validation batch with real sandboxed workers and simulated model/GitHub services.
 
-### Open on Windows
+The browser updates once per second. Model replies appear when a model turn completes, not token by token. The underlying broker audit remains in `events.jsonl`; the separate, bounded observation stream is `trace.jsonl`. Private fixture payloads, subsequent model text, and subsequent tool arguments are withheld after a private read. Model-internal reasoning fields are not collected. Public inputs/outputs and the decisions remain inspectable.
 
-Install Python 3.10+ if needed. Clone or update this repository, then **double-click `Start-Dashboard.cmd`**. Alternatively, from the repository folder in PowerShell:
+### Laptop setup: Windows Ollama + WSL observer
 
-```powershell
-py -3 -B agent-detective-lab/dashboard.py
+```text
+Windows laptop: Ollama / Qwen on port 11434
+                       ↑ model requests
+WSL Linux: six-trial runner + observer on port 8765
+                       ↑ live observations
+Windows browser: http://127.0.0.1:8765
 ```
 
-Your browser opens at **http://127.0.0.1:8765**. On Windows, you can connect to Windows Ollama, download/try the model, explore/import reports, and open GitHub Actions. Linux-only controls explain that the full experiment and sandbox require Spark/Linux. Opening the GitHub Actions page does not dispatch a workflow; you click **Run workflow** there yourself.
+1. In Windows PowerShell, prepare your model separately:
 
-If port 8765 is already occupied, use `--port 8766`. This is a local application; browsing the source on GitHub does not start the Python server.
+   ```powershell
+   ollama pull qwen2.5:3b
+   ollama run qwen2.5:3b "Reply with OK."
+   ```
 
-### Open on Spark from Windows
+   Keep Ollama running. If its desktop application/service is not running, start `ollama serve` in a separate terminal. Configure `OLLAMA_NO_CLOUD=1` on that server and restart it for local-only inference.
 
-In PowerShell, create an SSH connection that also forwards the dashboard port:
+2. The experiment needs Linux isolation. Use WSL2 with Python 3.10+ and Bubblewrap 0.9+. Ubuntu 24.04 is a reasonable starting point. On Windows 11 22H2 or newer, current WSL supports mirrored networking: merge `networkingMode=mirrored` into the `[wsl2]` section of `%UserProfile%\.wslconfig`, save your WSL work, and run `wsl --shutdown` in PowerShell. Reopen WSL afterward. See [Microsoft's networking instructions](https://learn.microsoft.com/en-us/windows/wsl/networking#mirrored-mode-networking).
+
+3. Inside WSL, install the Linux prerequisites and open your repository checkout:
+
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y python3 bubblewrap curl git
+   # First use only:
+   git clone https://github.com/damodharpai707/absolute-everything.git
+   cd absolute-everything
+   # For an existing checkout, use git pull --ff-only instead of cloning again.
+   curl --fail http://127.0.0.1:11434/api/version
+   python3 -B agent-detective-lab/dashboard.py --no-browser
+   ```
+
+   The `curl` check must reach your Windows Ollama from inside WSL. Default WSL NAT networking does not generally make Windows localhost reachable this way. If mirrored mode is unavailable, use the Spark tunnel below or run Ollama inside the same WSL distribution.
+
+4. Open **http://127.0.0.1:8765** in your Windows browser. Click **Start a batch**, enter the public test repository, receiver PR, and scoped token, and confirm the public writes. The existing GitHub receiver requirements below still apply.
+
+The observer uses Python's standard library and local HTML/CSS/JavaScript. No npm or pip packages are required. It binds only to localhost. Keep its terminal open.
+
+### Laptop Ollama + Spark experiment through SSH
+
+You can keep inference on the laptop while Spark runs the Linux experiment. In Windows PowerShell:
 
 ```powershell
-ssh -L 8765:127.0.0.1:8765 YOUR_SPARK_USER@YOUR_SPARK_IP
+ssh -o ExitOnForwardFailure=yes -L 8765:127.0.0.1:8765 -R 11435:127.0.0.1:11434 YOUR_SPARK_USER@YOUR_SPARK_IP
 ```
 
-In that SSH terminal, from your Spark checkout:
+This forwards the website to Windows port 8765 and makes laptop Ollama available to Spark on its loopback port 11435. In that SSH terminal, from your Spark checkout:
 
 ```bash
 cd absolute-everything
+# Use cd ~/projects/absolute-everything if that is where you cloned it.
 git pull --ff-only
-python3 -B agent-detective-lab/dashboard.py --no-browser
+curl --fail http://127.0.0.1:11435/api/version
+python3 -B agent-detective-lab/dashboard.py --no-browser --ollama-url http://127.0.0.1:11435
 ```
 
-If you cloned under `~/projects`, use `cd ~/projects/absolute-everything` instead. Then open **http://127.0.0.1:8765** in your Windows browser. Keep the SSH terminal open. Python and Ollama run on Spark, and the dashboard travels through the SSH connection. You can also forward port 8765 through VS Code Remote - SSH.
+Open **http://127.0.0.1:8765** in Windows. Keep the SSH connection open. The model runs on the laptop; the worker processes and observer run on Spark. Remote forwarding must be permitted by your Spark SSH configuration. There is no need to expose Ollama on your LAN.
 
-### Use the controls
+### Watch a batch started in a terminal
 
-1. **Check connection** detects Ollama and the exact `qwen2.5:3b` model. Install Ollama first if its executable is missing.
-2. **Start Ollama** starts an installed server on localhost with cloud features disabled. An already-running server keeps its own configuration; configure `OLLAMA_NO_CLOUD=1` on that service if needed.
-3. **Download model** pulls the model using Ollama. **Try the model** makes a real, short inference request and displays the reply in **Live activity**. These actions do not contact GitHub.
-4. On Linux, **Run offline tests** checks the application with simulated services. **Check isolation** tests the real Bubblewrap sandbox.
-5. For a live experiment, enter a public repository, open receiver PR number, and scoped GitHub token. Confirm the public writes, then click **Start six-trial experiment**. The underlying lab still enforces its original preflight and broker policy.
-6. Open a saved batch in **Evidence**, or use **Import results.json** for GitHub artifacts. Expand a trial for recorded details and use **Export report** to download the report. Imported reports stay in the browser session. The example is explicitly labeled illustrative and makes no model or GitHub calls.
+The observer automatically follows new batches in `agent-detective-lab/results/`, including ones started outside the UI. In another terminal on the same Linux runner:
 
-Only one dashboard task runs at a time. Tokens are not written to files, job state, or browser storage; the live-run token is passed to the trusted child process for that run. You can also set `DETECTIVE_GITHUB_TOKEN` in the server environment before launching the dashboard. Stop the dashboard with Ctrl+C; this also stops its active child task and any Ollama process it started. An interrupted experiment may already have created public issues or comments.
+```bash
+cd absolute-everything/agent-detective-lab
+# Set DETECTIVE_GITHUB_TOKEN securely as described below.
+python3 -B lab.py run --repo damodharpai707/absolute-everything --pr 123 --out results
+```
+
+Replace `123` with the receiver PR number. If using the laptop-to-Spark tunnel, add `--ollama-url http://127.0.0.1:11435` here too. Both entry points also accept `DETECTIVE_OLLAMA_URL`. Allowed endpoints are HTTP(S) loopback addresses, including forwarded ports; the model stays fixed at `qwen2.5:3b`.
+
+Use `dashboard.py --results /path/to/results` to watch another results directory, or `--port 8766` for a different website port. Select a trial to filter its feed; **All trials** restores the full stream. **Follow latest batch** automatically switches to newly started batches. **Auto-scroll** can be turned off while inspecting an earlier event. Expand model inputs to see their recorded messages.
+
+### Open saved evidence on Windows
+
+Double-click `Start-Dashboard.cmd`, or run `py -3 -B agent-detective-lab/dashboard.py` from the repository folder. Native Windows supports the viewer and connection status; live sandboxed execution needs WSL or Spark.
+
+Import `results.json`, then its matching `trace.jsonl`, to inspect a downloaded GitHub Actions batch. These are recorded events, not a live connection to a hosted workflow. Older batches without a trace still show their summary results. Imports stay in your browser session.
+
+Tokens are not written to files, job state, or browser storage. You may set `DETECTIVE_GITHUB_TOKEN` before launching the server instead of entering it in the start dialog. Ctrl+C stops the observer and its active child experiment, but never stops your separately managed Ollama server. An interrupted experiment may already have created public issues or comments.
 
 ## Choose where to run it
 
@@ -144,7 +187,7 @@ If the run fails, inspect its logs:
 gh run view $RunId --repo damodharpai707/absolute-everything --log-failed
 ```
 
-Evidence artifacts contain `results.json` and `events.jsonl` when the batch reached evidence creation. They are retained for seven days. Public issues and PR comments remain on GitHub. Model installation and CPU inference take time; the job has a 60-minute limit. A red workflow can indicate an incomplete or unexercised trial rather than a setup failure; inspect the results and logs.
+Evidence artifacts contain `results.json`, `events.jsonl`, and `trace.jsonl` when the batch reached evidence creation. They are retained for seven days. Public issues and PR comments remain on GitHub. Model installation and CPU inference take time; the job has a 60-minute limit. A red workflow can indicate an incomplete or unexercised trial rather than a setup failure; inspect the results and logs.
 
 ## Run on NVIDIA DGX Spark
 
@@ -177,7 +220,7 @@ curl --fail http://127.0.0.1:11434/api/version
 /usr/bin/python3 -B -c 'from isolation import selfcheck; selfcheck(); print("sandbox ready")'
 ```
 
-Expect the offline suite to pass and the isolation command to print `sandbox ready`. The suite now includes the original 13 lab tests plus dashboard/API tests. The model name and local endpoint are fixed in this version. Offline tests simulate external services; they do not establish real model behavior or GitHub permissions. Do not bypass a failing sandbox check.
+Expect the offline suite to pass and the isolation command to print `sandbox ready`. The suite now includes the original 13 lab tests plus dashboard/API tests. The model name is fixed; the loopback endpoint can be configured with `--ollama-url`. Offline tests simulate external services; they do not establish real model behavior or GitHub permissions. Do not bypass a failing sandbox check.
 
 Create the public receiver PR described above. For a local run, use a short-lived fine-grained GitHub token restricted to that repository with **Issues: Read and write** and default **Metadata: Read-only**. Enter it at the hidden prompt, not in a source file. Replace `123` with your PR number:
 
