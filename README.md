@@ -4,6 +4,55 @@ This repository includes **Agent Detective Lab**, a Python experiment using Olla
 
 The [lab documentation](agent-detective-lab/README.md) explains the six trials, broker policy, evidence, and limitations. The private fixture contains a generated fake secret, not a credential from your machine.
 
+## Visual dashboard
+
+The dashboard gives you buttons to connect to Ollama, download Qwen, try the model, check isolation, run tests, and start an experiment. Follow live output and inspect every trial in the evidence viewer. You can open an illustrative example or import a `results.json` downloaded from GitHub Actions without running a model.
+
+![Agent Detective Lab dashboard](docs/dashboard.png)
+
+It uses Python's standard library and local HTML/CSS/JavaScript. No npm, pip packages, remote fonts, or frontend build is needed. The server listens only on `127.0.0.1`; keep its terminal open while using it.
+
+### Open on Windows
+
+Install Python 3.10+ if needed. Clone or update this repository, then **double-click `Start-Dashboard.cmd`**. Alternatively, from the repository folder in PowerShell:
+
+```powershell
+py -3 -B agent-detective-lab/dashboard.py
+```
+
+Your browser opens at **http://127.0.0.1:8765**. On Windows, you can connect to Windows Ollama, download/try the model, explore/import reports, and open GitHub Actions. Linux-only controls explain that the full experiment and sandbox require Spark/Linux. Opening the GitHub Actions page does not dispatch a workflow; you click **Run workflow** there yourself.
+
+If port 8765 is already occupied, use `--port 8766`. This is a local application; browsing the source on GitHub does not start the Python server.
+
+### Open on Spark from Windows
+
+In PowerShell, create an SSH connection that also forwards the dashboard port:
+
+```powershell
+ssh -L 8765:127.0.0.1:8765 YOUR_SPARK_USER@YOUR_SPARK_IP
+```
+
+In that SSH terminal, from your Spark checkout:
+
+```bash
+cd absolute-everything
+git pull --ff-only
+python3 -B agent-detective-lab/dashboard.py --no-browser
+```
+
+If you cloned under `~/projects`, use `cd ~/projects/absolute-everything` instead. Then open **http://127.0.0.1:8765** in your Windows browser. Keep the SSH terminal open. Python and Ollama run on Spark, and the dashboard travels through the SSH connection. You can also forward port 8765 through VS Code Remote - SSH.
+
+### Use the controls
+
+1. **Check connection** detects Ollama and the exact `qwen2.5:3b` model. Install Ollama first if its executable is missing.
+2. **Start Ollama** starts an installed server on localhost with cloud features disabled. An already-running server keeps its own configuration; configure `OLLAMA_NO_CLOUD=1` on that service if needed.
+3. **Download model** pulls the model using Ollama. **Try the model** makes a real, short inference request and displays the reply in **Live activity**. These actions do not contact GitHub.
+4. On Linux, **Run offline tests** checks the application with simulated services. **Check isolation** tests the real Bubblewrap sandbox.
+5. For a live experiment, enter a public repository, open receiver PR number, and scoped GitHub token. Confirm the public writes, then click **Start six-trial experiment**. The underlying lab still enforces its original preflight and broker policy.
+6. Open a saved batch in **Evidence**, or use **Import results.json** for GitHub artifacts. Expand a trial for recorded details and use **Export report** to download the report. Imported reports stay in the browser session. The example is explicitly labeled illustrative and makes no model or GitHub calls.
+
+Only one dashboard task runs at a time. Tokens are not written to files, job state, or browser storage; the live-run token is passed to the trusted child process for that run. You can also set `DETECTIVE_GITHUB_TOKEN` in the server environment before launching the dashboard. Stop the dashboard with Ctrl+C; this also stops its active child task and any Ollama process it started. An interrupted experiment may already have created public issues or comments.
+
 ## Choose where to run it
 
 | Option | Where Python and Ollama run | How you launch it |
@@ -128,7 +177,7 @@ curl --fail http://127.0.0.1:11434/api/version
 /usr/bin/python3 -B -c 'from isolation import selfcheck; selfcheck(); print("sandbox ready")'
 ```
 
-Expect 13 passing tests and `sandbox ready`. The model name and local endpoint are fixed in this version. Offline tests simulate external services; they do not establish real model behavior or GitHub permissions. Do not bypass a failing sandbox check.
+Expect the offline suite to pass and the isolation command to print `sandbox ready`. The suite now includes the original 13 lab tests plus dashboard/API tests. The model name and local endpoint are fixed in this version. Offline tests simulate external services; they do not establish real model behavior or GitHub permissions. Do not bypass a failing sandbox check.
 
 Create the public receiver PR described above. For a local run, use a short-lived fine-grained GitHub token restricted to that repository with **Issues: Read and write** and default **Metadata: Read-only**. Enter it at the hidden prompt, not in a source file. Replace `123` with your PR number:
 

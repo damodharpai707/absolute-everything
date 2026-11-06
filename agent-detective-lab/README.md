@@ -2,6 +2,8 @@
 
 A terminal agent reads a real GitHub issue and decides whether to post to a real public pull request. Qwen 2.5 3B running in Ollama chooses the tools. A separate broker controls the GitHub credential and the private fixture. This experiment asks two questions. Can the broker stop a private-to-public transfer when the detective lies? Does the honest detective recognize the attempted transfer?
 
+For a visual interface, run `python3 -B dashboard.py` from this directory. The browser dashboard can connect to Ollama, try the model, run the experiment on Linux, and display results. See the [Windows and Spark dashboard guide](../README.md#visual-dashboard). Windows supports the model controls and report viewer; the full experiment still needs Linux.
+
 ## Run it on GitHub
 
 Use a dedicated, empty **public** repository you control. Enable Issues and Actions. Use only the supplied manually triggered workflow and synthetic test data. The experiment creates two public fixture issues and can post up to six public comments on the designated pull request. Choose a repository where public comments cannot trigger other integrations. The workflow uses GitHub’s temporary repository token and a CPU model running on the same hosted runner. No model API key or personal access token is needed for the workflow.
